@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    app: mysql-replica
+spec:
+  selector:
+    matchLabels:
+      app: mysql-replica
+      tier: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql-replica
+        tier: mysql
+    spec:
+      containers:
+      - image: mysql:8.0
+        name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-pass
+              key: password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+        - name: conf-vol
+          mountPath: /etc/my.cnf
+          subPath: my.cnf
+      initContainers:
+      - name: init-set
+        image: alpine:latest
+        command:
+        - /mnt/scripts/run.sh
+        volumeMounts:
+        - name: scripts-vol
+          mountPath: /mnt/scripts
+        - name: conf-vol
+          mountPath: /mnt/data
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim
+      - name: scripts-vol
+        configMap:
+          name: my-set-config
+          defaultMode: 0555
+      - name: conf-vol
+        emptyDir: {}
+
